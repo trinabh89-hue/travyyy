@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Aura Board x Media Engine</title>
+    <style>
+      /* --- DESIGN SYSTEM: WHITE, DARK NAVY, X-FLAVOR CHUNKY AESTHETIC --- */
+      :root {
+        --bg-main: #fcfdfe;
+        --bg-surface: #ffffff;
+        --primary-blue: #000a18;
+        --accent-blue: #002855;
+        --electric-blue: #0096c7;
+        --sky-blue: #e8f1f5;
+        --text-dark: #000a18;
+        --text-muted: #536471; /* X style gray text */
+        --border-chunky: 3px solid #000a18;
+        --font-chunky: "Arial Black", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        --radius-chunky: 16px;
+        --shadow-chunky: 6px 6px 0px #000a18;
+        --shadow-hover: 2px 2px 0px #000a18;
+        --transition-snappy: all 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; font-family: var(--font-chunky); background-color: var(--bg-main); color: var(--text-dark); }
+      body { min-height: 100vh; display: flex; flex-direction: column; }
+      a { color: inherit; text-decoration: none; }
+      button, input { font-family: inherit; }
+
+      /* TYPOGRAPHY */
+      h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; letter-spacing: -0.05em; text-transform: uppercase; line-height: 0.95; }
+      h2 { font-size: clamp(1.8rem, 3.5vw, 2.5rem); font-weight: 900; letter-spacing: -0.04em; text-transform: uppercase; }
+      h3 { font-size: 1.3rem; font-weight: 900; }
+      p { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 600; color: var(--text-muted); line-height: 1.4; }
+      .kicker { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--electric-blue); font-weight: 900; margin-bottom: 0.4rem; }
+
+      /* HEADER */
+      .topbar { position: fixed; top: 0; left: 0; right: 0; height: 75px; background: var(--bg-surface); display: flex; justify-content: space-between; align-items: center; padding: 0 2rem; z-index: 100; border-bottom: var(--border-chunky); }
+      .brand { font-weight: 900; font-size: 1.6rem; text-transform: uppercase; letter-spacing: -0.05em; }
+      .topbar nav a { margin-left: 1rem; font-size: 0.85rem; font-weight: 900; text-transform: uppercase; padding: 8px 14px; border-radius: 20px; border: 2px solid transparent; }
+      .topbar nav a:hover { border: 2px solid var(--primary-blue); background: var(--sky-blue); }
+
+      main { margin-top: 75px; flex: 1; }
+      .section { padding: 4rem 2rem; max-width: 1250px; margin: 0 auto; width: 100%; }
+
+      /* HERO GRID (X layout + Insta Story hybrid) */
+      .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; min-height: 75vh; }
+      .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem; }
+      
+      .btn-chunky { padding: 14px 28px; font-weight: 900; text-transform: uppercase; border-radius: var(--radius-chunky); border: var(--border-chunky); cursor: pointer; transition: var(--transition-snappy); box-shadow: var(--shadow-chunky); background: var(--bg-surface); color: var(--primary-blue); }
+      .btn-chunky.primary { background: var(--primary-blue); color: white; }
+      .btn-chunky:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0px #000a18; }
+      .btn-chunky:active { transform: translate(2px, 2px); box-shadow: var(--shadow-hover); }
+
+      /* INTERACTIVE X-PHONE DOCK CONTAINER */
+      .phone-dock { background: var(--bg-surface); border: var(--border-chunky); border-radius: 32px; height: 560px; position: relative; box-shadow: var(--shadow-chunky); display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 375px; margin: 0 auto; }
+      .phone-screen { flex: 1; display: flex; flex-direction: column; background: #000000; color: white; padding: 1.2rem; position: relative; justify-content: space-between; }
+      
+      /* INSTAGRAM-STYLE PROGRESS TRACKERS */
+      .story-timeline { display: flex; gap: 4px; width: 100%; margin-bottom: 1rem; }
+      .story-timeline span { height: 3px; background: rgba(255,255,255,0.25); flex: 1; border-radius: 2px; position: relative; overflow: hidden; }
+      .story-timeline span.filled::after { content: ''; position: absolute; left:0; top:0; bottom:0; background: white; width: 100%; }
+      .story-timeline span.active-progress::after { content: ''; position: absolute; left:0; top:0; bottom:0; background: #1d9bf0; width: var(--audio-progress, 0%); }
+
+      /* NATIVE MEDIA OVERLAY CONTROL */
+      .now-playing-card { background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(20px); border: 2px solid rgba(255,255,255,0.2); padding: 1rem; border-radius: 20px; display: flex; flex-direction: column; gap: 0.8rem; margin-top: auto; }
+      .track-details { display: flex; align-items: center; gap: 12px; }
+      .track-art-placeholder { width: 50px; height: 50px; background: linear-gradient(45deg, var(--electric-blue), var(--accent-blue)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; border: 1px solid rgba(255,255,255,0.3); }
+      .track-metadata h4 { font-size: 1.1rem; font-weight: 900; letter-spacing: -0.02em; }
+      .track-metadata p { font-size: 0.8rem; color: #cbd5e1; font-weight: 500; }
+      
+      /* CUSTOM MUSIC ENGINE WAVE VISUALIZER */
+      .wave-container { display: flex; gap: 3px; align-items: flex-end; height: 24px; margin-left: auto; }
+      .wave-bar { width: 3px; height: 100%; background: #1d9bf0; border-radius: 2px; animation: bounce 0.8s ease infinite alternate; transform-origin: bottom; animation-play-state: paused; }
+      .playing .wave-bar { animation-play-state: running; }
+      .wave-bar:nth-child(2) { animation-delay: 0.2s; animation-duration: 0.5s; }
+      .wave-bar:nth-child(3) { animation-delay: 0.4s; animation-duration: 0.7s; }
+
+      @keyframes bounce { 0% { transform: scaleY(0.2); } 100% { transform: scaleY(1); } }
+
+      /* AUDIO CONTROLS BAR */
+      .audio-action-row { display: flex; justify-content: center; align-items: center; gap: 1.5rem; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 30px; }
+      .circ-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: white; color: black; font-weight: 900; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition-snappy); }
+      .circ-btn:hover { transform: scale(1.08); background: #1d9bf0; color: white; }
+
+      /* PINTEREST MASONRY HOOK */
+      .pinterest-masonry { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2rem; width: 100%; margin-top: 2rem; }
+      .pin-card { background: var(--bg-surface); border: var(--border-chunky); border-radius: var(--radius-chunky); overflow: hidden; box-shadow: var(--shadow-chunky); display: flex; flex-direction: column; transition: var(--transition-snappy); }
+      .pin-card:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0px #000a18; }
+      .pin-media { height: 280px; background-size: cover; background-position: center; background-color: var(--sky-blue); border-bottom: var(--border-chunky); position: relative; }
+      
+      .stock-1 { background-image: linear-gradient(135deg, #002855 0%, #0096c7 100%); }
+      .stock-2 { background-image: linear-gradient(135deg, #000a18 0%, #536471 100%); }
+
+      .pin-info { padding: 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; }
+      .yope-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 0.4rem; }
+      .yope-tags span { font-size: 0.72rem; font-weight: 900; text-transform: uppercase; background: var(--sky-blue); padding: 5px 10px; border-radius: 8px; border: 2px solid var(--primary-blue); color: var(--primary-blue); }
+
+      /* UPLOAD & SONG OF THE DAY MATRIX */
+      .upload-box-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; background: var(--bg-surface); border: var(--border-chunky); border-radius: var(--radius-chunky); padding: 2.5rem; box-shadow: var(--shadow-chunky); }
+      .uploader-zone { border: 3px dashed var(--primary-blue); border-radius: var(--radius-chunky); padding: 3rem 1.5rem; text-align: center; background: var(--bg-main); cursor: pointer; transition: var(--transition-snappy); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+      .uploader-zone:hover { background: var(--sky-blue); }
+      .uploader-zone input { display: none; }
+      
+      .sotd-generator-card { background: var(--primary-blue); color: white; padding: 2rem; border-radius: var(--radius-chunky); display: flex; flex-direction: column; justify-content: center; gap: 1rem; position: relative; overflow: hidden; }
+      .sotd-title { font-size: 1.4rem; font-weight: 900; text-transform: uppercase; color: #1d9bf0; }
+      .sotd-box { background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); padding: 1rem; border-radius: 12px; display: none; }
+      .sotd-box.visible { display: block; }
+
+      /* SEARCH CONSOLE STYLED LIKE X SEARCH ENGINE */
+      .search-engine-console { display: flex; flex-direction: column; gap: 1.5rem; background: var(--bg-surface); border: var(--border-chunky); border-radius: var(--radius-chunky); padding: 2.5rem; box-shadow: var(--shadow-chunky); margin-top: 3rem; }
+      .search-bar-row { position: relative; }
+      .search-bar-row input { width: 100%; background: var(--sky-blue); border: var(--border-chunky); padding: 16px 20px; border-radius: 30px; font-size: 1.05rem; font-weight: 700; color: var(--primary-blue); }
+      .search-bar-row input:focus { outline: none; background: white; border-color: var(--electric-blue); }
+
+      .x-list-container { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 1rem; }
+      .x-row-item { display: flex; justify-content: space-between; align-items: center; background: white; border: var(--border-chunky); padding: 14px 20px; border-radius: var(--radius-chunky); cursor: pointer; transition: var(--transition-snappy); }
+      .x-row-item:hover { background: var(--sky-blue); transform: translate(-2px, -2px); box-shadow: var(--shadow-hover); }
+      .x-row-item.active-playing { border-color: var(--electric-blue); background: var(--sky-blue); }
+      .x-row-item strong { font-weight: 900; color: var(--primary-blue); font-size: 1.1rem; }
+      .x-row-item p { font-size: 0.85rem; margin-top: 2px; }
+      
+      .play-badge-indicator { background: var(--primary-blue); color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; border: 1px solid black; }
+      .active-playing .play-badge-indicator { background: #1d9bf0; }
+
+      @media (max-width: 850px) {
+        .hero-grid, .upload-box-wrapper { grid-template-columns: 1fr; }
+        .phone-dock { max-width: 100%; height: 500px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- INSTA / X MIXED TOPBAR -->
+    <header class="topbar">
+      <a class="brand" href="#home">AURA.X</a>
+      <nav aria-label="Main Navigation">
+        <a href="#board">Pins</a>
+        <a href="#studio">Aura Deck</a>
+        <a href="#search-anchor">Search Engine</a>
+      </nav>
+    </header>
+
+    <main id="home">
+      
+      <!-- HERO SECTOR -->
+      <section class="hero-grid section">
+        <div class="hero-text-block">
+          <p class="kicker">Unblocked Audio Processing Stack v2</p>
+          <h1>Vibe Stream Engine Connected.</h1>
+          <p style="margin: 1rem 0 2rem 0; font-size: 1.1rem;">
+            A high-fidelity layout inspired by X, Instagram, and Pinterest. Select any track from the search hub below to fire up the native stream deck immediately—no cross-origin restrictions.
+          </p>
+          <div class="hero-actions">
+            <a class="btn-chunky primary" href="#search-anchor">Launch Music Finder</a>
+            <a class="btn-chunky" href="#studio">Upload Custom Aura</a>
+          </div>
+        </div>
+
+        <!-- THE X / INSTA APP DEVICE CONSOLE -->
+        <div class="phone-dock" id="studio">
+          <div class="phone-screen" id="phoneScreenBg">
+            
+            <!-- STORY TIMELINE TRACKER -->
+            <div class="story-timeline" id="timelineDashes">
+              <span class="active-progress"></span>
+              <span></span>
+              <span></span>
+            </div>
+
+            <div style="font-size: 0.8rem; text-transform: uppercase; font-weight:900; letter-spacing:0.1em; color:#1d9bf0;">
+              ✦ Live Deck Streamer
+            </div>
+
+            <!-- UNBLOCKED INTERACTIVE AUDIO SYSTEM CORE -->
+            <div class="now-playing-card" id="mediaDisplayBox">
+              <div class="track-details">
+                <div class="track-art-placeholder" id="deckArt">🎵</div>
+                <div class="track-metadata">
+                  <h4 id="deckTitle">FE!N</h4>
+                  <p id="deckArtist">Travis Scott ft. Playboi Carti</p>
+                </div>
+                <div class="wave-container" id="visualizerWave">
+                  <div class="wave-bar"></div>
+                  <div class="wave-bar"></div>
+                  <div class="wave-bar"></div>
+                </div>
+              </div>
+
+              <!-- CONTROLS ROW -->
+              <div class="audio-action-row">
+                <button class="circ-btn" id="btnPlayPause" aria-label="Play/Pause">▶</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- PICTURE UPLOAD & SONG OF THE DAY COMPONENT -->
+      <section class="section">
+        <div class="upload-box-wrapper">
+          <div class="upload-left">
+            <p class="kicker">Aura Analyzer</p>
+            <h2>Drop Pics for Song-of-the-Day</h2>
+            <p style="margin-top:0.5rem;">Load personal photos. The Yope algorithm processes the configuration and generates an exclusive track matches deck automatically.</p>
+            
+            <label class="uploader-zone" style="margin-top: 1.5rem;" for="imgHook">
+              <input type="file" id="imgHook" accept="image/*" multiple>
+              <strong>[ Add Custom Photo ]</strong>
+            </label>
+          </div>
+
+          <!-- GENERATOR DOCK -->
+          <div class="sotd-generator-card">
+            <div class="sotd-title">⚡ Today's Vibe Match</div>
+            <div id="sotdPrompt">Upload a photo to calculate its daily song counterpart track...</div>
+            <div class="sotd-box" id="sotdResultBox">
+              <h3 id="sotdTrackName">M3tamorphosis</h3>
+              <p style="color: #e2e8f0; margin-bottom: 1rem;" id="sotdArtistName">Playboi Carti</p>
+              <button class="btn-chunky" style="padding: 8px 16px; font-size:0.8rem; box-shadow:none;" id="btnLoadSotd">Load Into Player</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PINTEREST MASONRY DECK -->
+      <section id="board" class="section">
+        <p class="kicker">Pinterest Matrix Workspace</p>
+        <h2>Aura Pinboard Layout</h2>
+        <div class="pinterest-masonry" id="customPinsWall">
+          <div class="pin-card">
+            <div class="pin-media stock-1"></div>
+            <div class="pin-info">
+              <h3>Uptown Midnight Vibe</h3>
+              <div class="yope-tags"><span>#Travis</span><span>#Astroworld</span><span>#DarkBlue</span></div>
+            </div>
+          </div>
+          <div class="pin-card">
+            <div class="pin-media stock-2"></div>
+            <div class="pin-info">
+              <h3>Vamp City Room</h3>
+              <div class="yope-tags"><span>#Carti</span><span>#Opium</span><span>#Minimal</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEARCH ENGINE SECTION -->
+      <section id="search-anchor" class="section">
+        <div class="search-engine-console">
+          <div>
+            <p class="kicker">Search Engine x Platform Network</p>
+            <h2>Find Artists & Play Instantly</h2>
+            <p>Type below to filter tracks. Clicking a row forces the player module to switch tracks and play instantly.</p>
+          </div>
+
+          <div class="search-bar-row">
+            <input type="text" id="audioFilterInput" placeholder="Search Travis Scott, Playboi Carti, Don Toliver, Future...">
+          </div>
+
+          <div class="x-list-container" id="engineOutputRows">
+            <!-- Programmatic rows generate here -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- CENTRALIZED GLOBAL AUDIO RUNTIME ENGINE -->
+    <audio id="globalNativeAudio" crossorigin="anonymous"></audio>
+
+    <script>
+      // 1. SOUND DATABASE (Using unblocked copyright-free testing stems for real public stream capability)
+      const tracksNetwork = [
+        { title: "FE!N", artist: "Travis Scott ft. Playboi Carti", url: "https://actions.google.com/sounds/v1/science_fiction/ambient_space_machine.ogg", emoji: "🌵" },
+        { title: "Magnolia", artist: "Playboi Carti", url: "https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg", emoji: "🦋" },
+        { title: "Bandit", artist: "Don Toliver", url: "https://actions.google.com/sounds/v1/ambiences/morning_birds.ogg", emoji: "🏴‍☠️" },
+        { title: "Type Shit", artist: "Future x Metro Boomin", url: "https://actions.google.com/sounds/v1/cartoon/slide_whistle_up.ogg", emoji: "🦅" },
+        { title: "After Hours", artist: "Don Toliver", url: "https://actions.google.com/sounds/v1/impacts/crash_metal_cinematic.ogg", emoji: "🔥" }
+      ];
+
+      // Elements References
+      const audioPlayer = document.getElementById('globalNativeAudio');
+      const btnPlayPause = document.getElementById('btnPlayPause');
+      const deckTitle = document.getElementById('deckTitle');
+      const deckArtist = document.getElementById('deckArtist');
+      const deckArt = document.getElementById('deckArt');
+      const visualizer = document.getElementById('visualizerWave');
+      const engineOutputRows = document.getElementById('engineOutputRows');
+      const audioFilterInput = document.getElementById('audioFilterInput');
+      const timelineDashes = document.getElementById('timelineDashes');
+
+      let currentTrackIndex = 0;
+
+      // 2. RUNTIME PLAYBACK CONTROLLER ENGINE
+      function mountTrack(index, autostart = true) {
+        currentTrackIndex = index;
+        const track = tracksNetwork[index];
+        
+        audioPlayer.src = track.url;
+        deckTitle.textContent = track.title;
+        deckArtist.textContent = track.artist;
+        deckArt.textContent = track.emoji || "🎵";
+        
+        // Dynamic background mood shifts based on artist profile configurations
+        const phoneBg = document.getElementById('phoneScreenBg');
+        if(track.artist.includes("Carti")) phoneBg.style.background = "linear-gradient(180deg, #160000, #000000)";
+        else if(track.artist.includes("Scott")) phoneBg.style.background = "linear-gradient(180deg, #001c3d, #000a18)";
+        else phoneBg.style.background = "linear-gradient(180deg, #0b001a, #000000)";
+
+        if(autostart) {
+          audioPlayer.play().catch(err => console.log("Interaction required by system layout parameters. Click Play."));
+        }
+        rebuildSearchConsole();
+      }
+
+      // Audio state tracking hooks
+      audioPlayer.addEventListener('play', () => {
+        btnPlayPause.textContent = "⏸";
+        visualizer.classList.add('playing');
+      });
+
+      audioPlayer.addEventListener('pause', () => {
+        btnPlayPause.textContent = "▶";
+        visualizer.classList.remove('playing');
+      });
+
+      // Interactive Progress Bar Engine
+      audioPlayer.addEventListener('timeupdate', () => {
+        if(audioPlayer.duration) {
+          const pct = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+          timelineDashes.style.setProperty('--audio-progress', `${pct}%`);
+        }
+      });
+
+      btnPlayPause.addEventListener('click', () => {
+        if(audioPlayer.paused) audioPlayer.play();
+        else audioPlayer.pause();
+      });
+
+      // 3. SEARCH ENGINE SYSTEM CONTROLLER
+      function rebuildSearchConsole() {
+        engineOutputRows.innerHTML = '';
+        const searchString = audioFilterInput.value.toLowerCase();
+
+        tracksNetwork.forEach((track, originalIndex) => {
+          if(!track.title.toLowerCase().includes(searchString) && !track.artist.toLowerCase().includes(searchString)) return;
+
+          const row = document.createElement('div');
+          row.className = `x-row-item ${originalIndex === currentTrackIndex ? 'active-playing' : ''}`;
+          row.innerHTML = `
+            <div>
+              <strong>${track.title}</strong>
+              <p>${track.artist}</p>
+            </div>
+            <div class="play-badge-indicator">${originalIndex === currentTrackIndex ? 'ON DECK' : 'STREAM'}</div>
+          `;
+
+          row.addEventListener('click', () => {
+            mountTrack(originalIndex, true);
+          });
+
+          engineOutputRows.appendChild(row);
+        });
+      }
+
+      audioFilterInput.addEventListener('input', rebuildSearchConsole);
+
+      // 4. PHOTO CONVERSION & PINTEREST MATRIX ENGINE
+      const imgHook = document.getElementById('imgHook');
+      const customPinsWall = document.getElementById('customPinsWall');
+      const sotdPrompt = document.getElementById('sotdPrompt');
+      const sotdResultBox = document.getElementById('sotdResultBox');
+      const sotdTrackName = document.getElementById('sotdTrackName');
+      const sotdArtistName = document.getElementById('sotdArtistName');
+      let targetedSotdIndex = 0;
+
+      imgHook.addEventListener('change', (e) => {
+        if(e.target.files.length > 0) {
+          Array.from(e.target.files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              // Create automated new board card pin 
+              const newPin = document.createElement('div');
+              newPin.className = 'pin-card';
+              newPin.innerHTML = `
+                <div class="pin-media" style="background-image: url('${event.target.result}')"></div>
+                <div class="pin-info">
+                  <h3>Imported Custom Aura Frame</h3>
+                  <div class="yope-tags"><span>#Personal</span><span>#AuraGrid</span></div>
+                </div>
+              `;
+              customPinsWall.insertBefore(newPin, customPinsWall.firstChild);
+
+              // Match a random song of the day index automatically
+              targetedSotdIndex = Math.floor(Math.random() * tracksNetwork.length);
+              const matchedTrack = tracksNetwork[targetedSotdIndex];
+              
+              sotdPrompt.style.display = 'none';
+              sotdTrackName.textContent = matchedTrack.title;
+              sotdArtistName.textContent = matchedTrack.artist;
+              sotdResultBox.classList.add('visible');
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+      });
+
+      document.getElementById('btnLoadSotd').addEventListener('click', () => {
+        mountTrack(targetedSotdIndex, true);
+      });
+
+      // Initialization routine
+      mountTrack(0, false);
+
+    </script>
+  </body>
+</html>
