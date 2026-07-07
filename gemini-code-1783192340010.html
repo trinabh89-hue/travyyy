@@ -272,15 +272,11 @@
     <!-- CENTRALIZED GLOBAL AUDIO RUNTIME ENGINE -->
     <audio id="globalNativeAudio" crossorigin="anonymous"></audio>
 
+    <!-- Shared, unit-tested runtime logic -->
+    <script src="src/engine.js"></script>
     <script>
       // 1. SOUND DATABASE (Using unblocked copyright-free testing stems for real public stream capability)
-      const tracksNetwork = [
-        { title: "FE!N", artist: "Travis Scott ft. Playboi Carti", url: "https://actions.google.com/sounds/v1/science_fiction/ambient_space_machine.ogg", emoji: "🌵" },
-        { title: "Magnolia", artist: "Playboi Carti", url: "https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg", emoji: "🦋" },
-        { title: "Bandit", artist: "Don Toliver", url: "https://actions.google.com/sounds/v1/ambiences/morning_birds.ogg", emoji: "🏴‍☠️" },
-        { title: "Type Shit", artist: "Future x Metro Boomin", url: "https://actions.google.com/sounds/v1/cartoon/slide_whistle_up.ogg", emoji: "🦅" },
-        { title: "After Hours", artist: "Don Toliver", url: "https://actions.google.com/sounds/v1/impacts/crash_metal_cinematic.ogg", emoji: "🔥" }
-      ];
+      const tracksNetwork = AuraEngine.tracksNetwork;
 
       // Elements References
       const audioPlayer = document.getElementById('globalNativeAudio');
@@ -303,13 +299,11 @@
         audioPlayer.src = track.url;
         deckTitle.textContent = track.title;
         deckArtist.textContent = track.artist;
-        deckArt.textContent = track.emoji || "🎵";
+        deckArt.textContent = AuraEngine.resolveTrackArt(track);
         
         // Dynamic background mood shifts based on artist profile configurations
         const phoneBg = document.getElementById('phoneScreenBg');
-        if(track.artist.includes("Carti")) phoneBg.style.background = "linear-gradient(180deg, #160000, #000000)";
-        else if(track.artist.includes("Scott")) phoneBg.style.background = "linear-gradient(180deg, #001c3d, #000a18)";
-        else phoneBg.style.background = "linear-gradient(180deg, #0b001a, #000000)";
+        phoneBg.style.background = AuraEngine.resolvePhoneBackground(track.artist);
 
         if(autostart) {
           audioPlayer.play().catch(err => console.log("Interaction required by system layout parameters. Click Play."));
@@ -331,7 +325,7 @@
       // Interactive Progress Bar Engine
       audioPlayer.addEventListener('timeupdate', () => {
         if(audioPlayer.duration) {
-          const pct = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+          const pct = AuraEngine.computeProgressPercent(audioPlayer.currentTime, audioPlayer.duration);
           timelineDashes.style.setProperty('--audio-progress', `${pct}%`);
         }
       });
@@ -344,19 +338,20 @@
       // 3. SEARCH ENGINE SYSTEM CONTROLLER
       function rebuildSearchConsole() {
         engineOutputRows.innerHTML = '';
-        const searchString = audioFilterInput.value.toLowerCase();
+        const matches = AuraEngine.filterTracks(tracksNetwork, audioFilterInput.value);
 
-        tracksNetwork.forEach((track, originalIndex) => {
-          if(!track.title.toLowerCase().includes(searchString) && !track.artist.toLowerCase().includes(searchString)) return;
+        matches.forEach((track) => {
+          const originalIndex = tracksNetwork.indexOf(track);
+          const active = AuraEngine.isTrackActive(originalIndex, currentTrackIndex);
 
           const row = document.createElement('div');
-          row.className = `x-row-item ${originalIndex === currentTrackIndex ? 'active-playing' : ''}`;
+          row.className = `x-row-item ${active ? 'active-playing' : ''}`;
           row.innerHTML = `
             <div>
               <strong>${track.title}</strong>
               <p>${track.artist}</p>
             </div>
-            <div class="play-badge-indicator">${originalIndex === currentTrackIndex ? 'ON DECK' : 'STREAM'}</div>
+            <div class="play-badge-indicator">${AuraEngine.rowStatusLabel(active)}</div>
           `;
 
           row.addEventListener('click', () => {
@@ -396,7 +391,7 @@
               customPinsWall.insertBefore(newPin, customPinsWall.firstChild);
 
               // Match a random song of the day index automatically
-              targetedSotdIndex = Math.floor(Math.random() * tracksNetwork.length);
+              targetedSotdIndex = AuraEngine.pickSongOfTheDayIndex(tracksNetwork.length);
               const matchedTrack = tracksNetwork[targetedSotdIndex];
               
               sotdPrompt.style.display = 'none';
