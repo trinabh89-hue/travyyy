@@ -85,6 +85,10 @@
       .circ-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: white; color: black; font-weight: 900; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition-snappy); }
       .circ-btn:hover { transform: scale(1.08); background: #1d9bf0; color: white; }
 
+      /* PLAYBACK STATUS / ERROR FEEDBACK */
+      .deck-status { font-size: 0.75rem; font-weight: 700; text-align: center; min-height: 1rem; margin-top: 0.4rem; color: #cbd5e1; }
+      .deck-status.is-error { color: #ff6b6b; }
+
       /* PINTEREST MASONRY HOOK */
       .pinterest-masonry { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2rem; width: 100%; margin-top: 2rem; }
       .pin-card { background: var(--bg-surface); border: var(--border-chunky); border-radius: var(--radius-chunky); overflow: hidden; box-shadow: var(--shadow-chunky); display: flex; flex-direction: column; transition: var(--transition-snappy); }
@@ -193,6 +197,8 @@
               <div class="audio-action-row">
                 <button class="circ-btn" id="btnPlayPause" aria-label="Play/Pause">▶</button>
               </div>
+
+              <p class="deck-status" id="deckStatus" role="status" aria-live="polite"></p>
             </div>
 
           </div>
@@ -292,14 +298,45 @@
       const engineOutputRows = document.getElementById('engineOutputRows');
       const audioFilterInput = document.getElementById('audioFilterInput');
       const timelineDashes = document.getElementById('timelineDashes');
+      const deckStatus = document.getElementById('deckStatus');
 
       let currentTrackIndex = 0;
 
+      // Surface playback status/errors to the user instead of swallowing them.
+      function setDeckStatus(message, isError = false) {
+        deckStatus.textContent = message || '';
+        deckStatus.classList.toggle('is-error', Boolean(message) && isError);
+      }
+
+      // Centralized play() call so promise rejections are always handled and reported.
+      function startPlayback() {
+        const playPromise = audioPlayer.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise
+            .then(() => setDeckStatus(''))
+            .catch(err => {
+              console.error('Audio playback failed:', err);
+              if (err && err.name === 'NotAllowedError') {
+                setDeckStatus('Autoplay was blocked — tap play to start audio.', true);
+              } else {
+                setDeckStatus('Could not start playback. Check your connection and try again.', true);
+              }
+            });
+        }
+      }
+
       // 2. RUNTIME PLAYBACK CONTROLLER ENGINE
       function mountTrack(index, autostart = true) {
-        currentTrackIndex = index;
         const track = tracksNetwork[index];
-        
+        if (!track) {
+          console.error('mountTrack called with invalid index:', index);
+          setDeckStatus('That track is unavailable.', true);
+          return;
+        }
+
+        currentTrackIndex = index;
+        setDeckStatus('');
+
         audioPlayer.src = track.url;
         deckTitle.textContent = track.title;
         deckArtist.textContent = track.artist;
@@ -312,7 +349,7 @@
         else phoneBg.style.background = "linear-gradient(180deg, #0b001a, #000000)";
 
         if(autostart) {
-          audioPlayer.play().catch(err => console.log("Interaction required by system layout parameters. Click Play."));
+          startPlayback();
         }
         rebuildSearchConsole();
       }
@@ -328,6 +365,29 @@
         visualizer.classList.remove('playing');
       });
 
+      // Surface media load/network/decode failures that would otherwise fail silently.
+      audioPlayer.addEventListener('error', () => {
+        const mediaError = audioPlayer.error;
+        console.error('Audio element error:', mediaError);
+        visualizer.classList.remove('playing');
+        btnPlayPause.textContent = "▶";
+
+        let message = 'This track failed to load.';
+        if (mediaError) {
+          switch (mediaError.code) {
+            case mediaError.MEDIA_ERR_ABORTED:
+              message = 'Playback was aborted.'; break;
+            case mediaError.MEDIA_ERR_NETWORK:
+              message = 'Network error while loading this track.'; break;
+            case mediaError.MEDIA_ERR_DECODE:
+              message = 'This track could not be decoded.'; break;
+            case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+              message = 'This track is unavailable or in an unsupported format.'; break;
+          }
+        }
+        setDeckStatus(message, true);
+      });
+
       // Interactive Progress Bar Engine
       audioPlayer.addEventListener('timeupdate', () => {
         if(audioPlayer.duration) {
@@ -337,7 +397,7 @@
       });
 
       btnPlayPause.addEventListener('click', () => {
-        if(audioPlayer.paused) audioPlayer.play();
+        if(audioPlayer.paused) startPlayback();
         else audioPlayer.pause();
       });
 
@@ -381,7 +441,19 @@
       imgHook.addEventListener('change', (e) => {
         if(e.target.files.length > 0) {
           Array.from(e.target.files).forEach(file => {
+            if (!file.type.startsWith('image/')) {
+              console.warn('Skipping non-image file:', file.name, file.type);
+              sotdPrompt.style.display = 'block';
+              sotdPrompt.textContent = `"${file.name}" is not an image and was skipped.`;
+              return;
+            }
+
             const reader = new FileReader();
+            reader.onerror = () => {
+              console.error('Failed to read image file:', file.name, reader.error);
+              sotdPrompt.style.display = 'block';
+              sotdPrompt.textContent = `Could not read "${file.name}". Please try a different image.`;
+            };
             reader.onload = (event) => {
               // Create automated new board card pin 
               const newPin = document.createElement('div');
