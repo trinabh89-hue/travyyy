@@ -282,16 +282,25 @@
         { title: "After Hours", artist: "Don Toliver", url: "https://actions.google.com/sounds/v1/impacts/crash_metal_cinematic.ogg", emoji: "🔥" }
       ];
 
+      // Shared DOM utilities
+      const $ = (id) => document.getElementById(id);
+      const createEl = (tag, className, html) => {
+        const el = document.createElement(tag);
+        if (className) el.className = className;
+        if (html != null) el.innerHTML = html;
+        return el;
+      };
+
       // Elements References
-      const audioPlayer = document.getElementById('globalNativeAudio');
-      const btnPlayPause = document.getElementById('btnPlayPause');
-      const deckTitle = document.getElementById('deckTitle');
-      const deckArtist = document.getElementById('deckArtist');
-      const deckArt = document.getElementById('deckArt');
-      const visualizer = document.getElementById('visualizerWave');
-      const engineOutputRows = document.getElementById('engineOutputRows');
-      const audioFilterInput = document.getElementById('audioFilterInput');
-      const timelineDashes = document.getElementById('timelineDashes');
+      const audioPlayer = $('globalNativeAudio');
+      const btnPlayPause = $('btnPlayPause');
+      const deckTitle = $('deckTitle');
+      const deckArtist = $('deckArtist');
+      const deckArt = $('deckArt');
+      const visualizer = $('visualizerWave');
+      const engineOutputRows = $('engineOutputRows');
+      const audioFilterInput = $('audioFilterInput');
+      const timelineDashes = $('timelineDashes');
 
       let currentTrackIndex = 0;
 
@@ -306,7 +315,7 @@
         deckArt.textContent = track.emoji || "🎵";
         
         // Dynamic background mood shifts based on artist profile configurations
-        const phoneBg = document.getElementById('phoneScreenBg');
+        const phoneBg = $('phoneScreenBg');
         if(track.artist.includes("Carti")) phoneBg.style.background = "linear-gradient(180deg, #160000, #000000)";
         else if(track.artist.includes("Scott")) phoneBg.style.background = "linear-gradient(180deg, #001c3d, #000a18)";
         else phoneBg.style.background = "linear-gradient(180deg, #0b001a, #000000)";
@@ -349,15 +358,13 @@
         tracksNetwork.forEach((track, originalIndex) => {
           if(!track.title.toLowerCase().includes(searchString) && !track.artist.toLowerCase().includes(searchString)) return;
 
-          const row = document.createElement('div');
-          row.className = `x-row-item ${originalIndex === currentTrackIndex ? 'active-playing' : ''}`;
-          row.innerHTML = `
+          const row = createEl('div', `x-row-item ${originalIndex === currentTrackIndex ? 'active-playing' : ''}`, `
             <div>
               <strong>${track.title}</strong>
               <p>${track.artist}</p>
             </div>
             <div class="play-badge-indicator">${originalIndex === currentTrackIndex ? 'ON DECK' : 'STREAM'}</div>
-          `;
+          `);
 
           row.addEventListener('click', () => {
             mountTrack(originalIndex, true);
@@ -370,12 +377,12 @@
       audioFilterInput.addEventListener('input', rebuildSearchConsole);
 
       // 4. PHOTO CONVERSION & PINTEREST MATRIX ENGINE
-      const imgHook = document.getElementById('imgHook');
-      const customPinsWall = document.getElementById('customPinsWall');
-      const sotdPrompt = document.getElementById('sotdPrompt');
-      const sotdResultBox = document.getElementById('sotdResultBox');
-      const sotdTrackName = document.getElementById('sotdTrackName');
-      const sotdArtistName = document.getElementById('sotdArtistName');
+      const imgHook = $('imgHook');
+      const customPinsWall = $('customPinsWall');
+      const sotdPrompt = $('sotdPrompt');
+      const sotdResultBox = $('sotdResultBox');
+      const sotdTrackName = $('sotdTrackName');
+      const sotdArtistName = $('sotdArtistName');
       let targetedSotdIndex = 0;
 
       imgHook.addEventListener('change', (e) => {
@@ -384,15 +391,13 @@
             const reader = new FileReader();
             reader.onload = (event) => {
               // Create automated new board card pin 
-              const newPin = document.createElement('div');
-              newPin.className = 'pin-card';
-              newPin.innerHTML = `
+              const newPin = createEl('div', 'pin-card', `
                 <div class="pin-media" style="background-image: url('${event.target.result}')"></div>
                 <div class="pin-info">
                   <h3>Imported Custom Aura Frame</h3>
                   <div class="yope-tags"><span>#Personal</span><span>#AuraGrid</span></div>
                 </div>
-              `;
+              `);
               customPinsWall.insertBefore(newPin, customPinsWall.firstChild);
 
               // Match a random song of the day index automatically
@@ -409,7 +414,7 @@
         }
       });
 
-      document.getElementById('btnLoadSotd').addEventListener('click', () => {
+      $('btnLoadSotd').addEventListener('click', () => {
         mountTrack(targetedSotdIndex, true);
       });
 
