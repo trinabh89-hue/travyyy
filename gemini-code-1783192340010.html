@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src https://actions.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>Aura Board x Media Engine</title>
     <style>
       /* --- DESIGN SYSTEM: WHITE, DARK NAVY, X-FLAVOR CHUNKY AESTHETIC --- */
@@ -351,13 +353,19 @@
 
           const row = document.createElement('div');
           row.className = `x-row-item ${originalIndex === currentTrackIndex ? 'active-playing' : ''}`;
-          row.innerHTML = `
-            <div>
-              <strong>${track.title}</strong>
-              <p>${track.artist}</p>
-            </div>
-            <div class="play-badge-indicator">${originalIndex === currentTrackIndex ? 'ON DECK' : 'STREAM'}</div>
-          `;
+
+          const info = document.createElement('div');
+          const titleEl = document.createElement('strong');
+          titleEl.textContent = track.title;
+          const artistEl = document.createElement('p');
+          artistEl.textContent = track.artist;
+          info.append(titleEl, artistEl);
+
+          const badge = document.createElement('div');
+          badge.className = 'play-badge-indicator';
+          badge.textContent = originalIndex === currentTrackIndex ? 'ON DECK' : 'STREAM';
+
+          row.append(info, badge);
 
           row.addEventListener('click', () => {
             mountTrack(originalIndex, true);
@@ -378,21 +386,40 @@
       const sotdArtistName = document.getElementById('sotdArtistName');
       let targetedSotdIndex = 0;
 
+      const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB per file
+
       imgHook.addEventListener('change', (e) => {
         if(e.target.files.length > 0) {
           Array.from(e.target.files).forEach(file => {
+            // Validate user-supplied files: only accept images within a size cap.
+            if(!file.type.startsWith('image/') || file.size > MAX_UPLOAD_BYTES) {
+              return;
+            }
             const reader = new FileReader();
             reader.onload = (event) => {
-              // Create automated new board card pin 
+              // Create automated new board card pin using safe DOM APIs
               const newPin = document.createElement('div');
               newPin.className = 'pin-card';
-              newPin.innerHTML = `
-                <div class="pin-media" style="background-image: url('${event.target.result}')"></div>
-                <div class="pin-info">
-                  <h3>Imported Custom Aura Frame</h3>
-                  <div class="yope-tags"><span>#Personal</span><span>#AuraGrid</span></div>
-                </div>
-              `;
+
+              const media = document.createElement('div');
+              media.className = 'pin-media';
+              // Assign via style property so the data URL is never parsed as HTML/CSS markup.
+              media.style.backgroundImage = `url("${event.target.result}")`;
+
+              const pinInfo = document.createElement('div');
+              pinInfo.className = 'pin-info';
+              const heading = document.createElement('h3');
+              heading.textContent = 'Imported Custom Aura Frame';
+              const tags = document.createElement('div');
+              tags.className = 'yope-tags';
+              ['#Personal', '#AuraGrid'].forEach(t => {
+                const tag = document.createElement('span');
+                tag.textContent = t;
+                tags.appendChild(tag);
+              });
+              pinInfo.append(heading, tags);
+
+              newPin.append(media, pinInfo);
               customPinsWall.insertBefore(newPin, customPinsWall.firstChild);
 
               // Match a random song of the day index automatically
